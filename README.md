@@ -73,7 +73,6 @@ public/
 
 - O dicionário de traduções pode ser expandido em [`src/utils/translations.ts`](src/utils/translations.ts).
 - O filtro de coluna pode ser facilmente adaptado para outras colunas além de `dataType`.
-- Para dúvidas ou sugestões, abra uma issue ou envie um pull request!
 
 ---
 
