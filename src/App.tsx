@@ -5,11 +5,13 @@ import ResultsTable from "./components/ResultsTable";
 import SearchTipsModal from "./components/SearchTipsModal";
 import SelectedRowsSidebar from "./components/SelectedRowsSidebar";
 import ColumnFilters from "./components/ColumnFilters";
+import CsvEditorScreen from "./components/CsvEditorScreen";
 import { parseCsv, filterCsvRows, toCsv, CsvRow } from "./utils/csvUtils";
 import { translationDictionary } from "./utils/translations";
 import "./App.css";
 
 const App: React.FC = () => {
+  const [screen, setScreen] = useState<"welcome" | "labeling" | "edit">("welcome");
   const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
   const [filteredRows, setFilteredRows] = useState<CsvRow[]>([]);
   const [keyword, setKeyword] = useState<string>("");
@@ -21,7 +23,7 @@ const App: React.FC = () => {
   const [autoLabelingLoading, setAutoLabelingLoading] = useState(false);
   const [autoLabelingMessage, setAutoLabelingMessage] = useState<string | null>(null);
 
-  // Função para aplicar todos os filtros
+
   const applyFilters = (
     rows: CsvRow[],
     keyword: string,
@@ -112,8 +114,6 @@ const App: React.FC = () => {
 
     setAutoLabelingMessage(`Auto Labeling concluído! ${autoLabeledRows.length} linha(s) adicionada(s) à seleção.`);
 
-
-    // Adiciona as linhas encontradas aos selecionados (sem duplicar)
     setSelectedRows(prev => {
       const keys = (row: CsvRow) => JSON.stringify(row);
       const allRows = [...prev, ...autoLabeledRows];
@@ -122,8 +122,6 @@ const App: React.FC = () => {
     });
   };
 
-
-  // Verifica se há linhas filtradas para exibir os cabeçalhos
   const csvHeaders = filteredRows.length > 0 ? Object.keys(filteredRows[0]) : [];
   const filterableColumns = csvHeaders.filter(h => h === "dataType");
 
@@ -134,67 +132,102 @@ const App: React.FC = () => {
     setSelectedRows([]);
   };
 
-  return (
-
-    <div className="container">
-      <h1>Easy Labeling</h1>
-
-      <button style={{ float: "right", marginTop: -48 }} onClick={() => setShowTips(true)}>
-        Dicas de Pesquisa
-      </button>
-      <button style={{ float: "right", marginTop: -48, marginRight: 190 }} onClick={() => setSidebarOpen(true)}>
-        Ver selecionados
-      </button>
-      <SearchTipsModal open={showTips} onClose={() => setShowTips(false)} />
-      <SelectedRowsSidebar
-        selectedRows={selectedRows}
-        onRemoveRow={handleRemoveSelectedRow}
-        onClose={() => setSidebarOpen(false)}
-        open={sidebarOpen}
-      />
-      <FileUpload onFileSelected={handleFileSelected} />
-      {csvLoaded && (
+  if (screen === "welcome") {
+    return (
+      <div className="container" style={{ textAlign: "center", marginTop: 80 }}>
+        <h1>Easy Labeling</h1>
+        <p>Bem-vindo! O que você deseja fazer?</p>
         <button
-          style={{ marginBottom: 16, marginLeft: 8 }}
-          onClick={handleAutoLabeling}
-          disabled={autoLabelingLoading}
+          style={{ margin: 16, minWidth: 220 }}
+          onClick={() => setScreen("labeling")}
         >
-          {autoLabelingLoading ? "Auto Labeling em andamento..." : "Auto Labeling"}
+          Iniciar um Labeling
         </button>
-      )}
-      {autoLabelingMessage && (
-        <div style={{ margin: "12px 0", color: "#2980d9", fontWeight: 500 }}>
-          {autoLabelingMessage}
-        </div>
-      )}
-      {csvLoaded && (
-        <>
-          <SearchBar keyword={keyword} onKeywordChange={handleKeywordChange} />
-          {filteredRows.length > 0 && (
-            <ColumnFilters
-              headers={filterableColumns}
-              rows={csvRows}
-              filters={columnFilters}
-              onFilterChange={handleColumnFilterChange}
-            />
-          )}
-          {csvLoaded && (
-            <button
-              style={{ marginBottom: 16, marginLeft: 8, background: "#e74c3c" }}
-              onClick={handleClearAll}
-            >
-              Limpar tudo
-            </button>
-          )}
-          <ResultsTable
-            rows={filteredRows}
-            onSelectRows={handleSelectRows}
-            selectedRows={selectedRows}
-          />
-        </>
-      )}
-    </div>
-  );
-};
+        <button
+          style={{ margin: 16, minWidth: 220 }}
+          onClick={() => setScreen("edit")}
+        >
+          Modificar um Labeling
+        </button>
+      </div>
+    );
+  }
+  if (screen === "edit") {
+    return (
+      <CsvEditorScreen onBack={() => setScreen("welcome")} />
+    );
+  }
+  if (screen === "labeling") {
+    return (
 
+      <div className="container">
+        <h1>Easy Labeling</h1>
+
+        <button style={{ float: "right", marginTop: -48, marginRight: 0 }} onClick={() => setScreen("welcome")}>
+          Voltar</button>
+        <button style={{ float: "right", marginTop: -48, marginRight: 100 }} onClick={() => setShowTips(true)}>
+          Dicas de Pesquisa
+        </button>
+        <button style={{ float: "right", marginTop: -48, marginRight: 295 }} onClick={() => setSidebarOpen(true)}>
+          Ver selecionados
+        </button>
+        <SearchTipsModal open={showTips} onClose={() => setShowTips(false)} />
+        <SelectedRowsSidebar
+          selectedRows={selectedRows}
+          onRemoveRow={handleRemoveSelectedRow}
+          onClose={() => setSidebarOpen(false)}
+          open={sidebarOpen}
+        />
+        <FileUpload onFileSelected={handleFileSelected} />
+        {
+          csvLoaded && (
+            <button
+              style={{ marginBottom: 16, marginLeft: 8 }}
+              onClick={handleAutoLabeling}
+              disabled={autoLabelingLoading}
+            >
+              {autoLabelingLoading ? "Auto Labeling em andamento..." : "Auto Labeling"}
+            </button>
+          )
+        }
+        {
+          autoLabelingMessage && (
+            <div style={{ margin: "12px 0", color: "#2980d9", fontWeight: 500 }}>
+              {autoLabelingMessage}
+            </div>
+          )
+        }
+        {
+          csvLoaded && (
+            <>
+              <SearchBar keyword={keyword} onKeywordChange={handleKeywordChange} />
+              {filteredRows.length > 0 && (
+                <ColumnFilters
+                  headers={filterableColumns}
+                  rows={csvRows}
+                  filters={columnFilters}
+                  onFilterChange={handleColumnFilterChange}
+                />
+              )}
+              {csvLoaded && (
+                <button
+                  style={{ marginBottom: 16, marginLeft: 8, background: "#e74c3c" }}
+                  onClick={handleClearAll}
+                >
+                  Limpar tudo
+                </button>
+              )}
+              <ResultsTable
+                rows={filteredRows}
+                onSelectRows={handleSelectRows}
+                selectedRows={selectedRows}
+              />
+            </>
+          )
+        }
+      </div >
+    );
+  }
+  return null;
+}
 export default App;
