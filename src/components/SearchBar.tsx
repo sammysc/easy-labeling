@@ -3,9 +3,10 @@ import React from "react";
 interface SearchBarProps {
   keyword: string;
   onKeywordChange: (value: string) => void;
+  inputRef?: React.RefObject<HTMLInputElement>;
 }
 
-const SearchBar: React.FC<SearchBarProps> = ({ keyword, onKeywordChange }) => {
+const SearchBar: React.FC<SearchBarProps> = ({ keyword, onKeywordChange, inputRef }) => {
   return (
     <div>
       <label htmlFor="search-bar">Buscar palavra-chave:</label>
@@ -15,6 +16,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ keyword, onKeywordChange }) => {
         value={keyword}
         onChange={e => onKeywordChange(e.target.value)}
         placeholder="Digite palavras-chave em português (busca traduz automaticamente)"
+        ref={inputRef}
       />
     </div>
   );

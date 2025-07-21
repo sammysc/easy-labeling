@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect } from "react";
 import { CsvRow } from "../utils/csvUtils";
 
+
+
 interface ResultsTableProps {
   rows: CsvRow[];
   onSelectRows: (rows: CsvRow[]) => void;
@@ -10,16 +12,30 @@ interface ResultsTableProps {
 const INITIAL_ROWS = 30;
 const LOAD_MORE_ROWS = 20;
 
+
 const ResultsTable: React.FC<ResultsTableProps> = ({ rows, onSelectRows, selectedRows }) => {
   const [visibleCount, setVisibleCount] = useState(INITIAL_ROWS);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const selectedKeys = new Set(selectedRows.map(row => JSON.stringify(row)));
-  
+  const [selectAll, setSelectAll] = useState(false);
+
   useEffect(() => {
     setVisibleCount(INITIAL_ROWS);
     setSelected(new Set());
+    setSelectAll(false);
   }, [rows]);
+
+
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelected(new Set());
+      setSelectAll(false);
+    } else {
+      setSelected(new Set(visibleRows.map((_, idx) => idx)));
+      setSelectAll(true);
+    }
+  }
 
   const handleScroll = () => {
     const container = containerRef.current;
@@ -56,6 +72,24 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ rows, onSelectRows, selecte
   const headers = Object.keys(rows[0]);
   const visibleRows = rows.slice(0, visibleCount);
 
+  //uso de teclas de atalho
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === "a") {
+        e.preventDefault();
+        setSelected(new Set(visibleRows.map((_, idx) => idx)));
+        setSelectAll(true);
+      }
+      if (e.ctrlKey && e.key === "d") {
+        e.preventDefault();
+        setSelected(new Set());
+        setSelectAll(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [visibleRows]);
+
   return (
     <div>
       <div
@@ -66,28 +100,41 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ rows, onSelectRows, selecte
         <table>
           <thead>
             <tr>
-              <th></th>
+              <th>
+                <input
+                  type="checkbox"
+                  checked={selectAll}
+                  onChange={handleSelectAll}
+                  title="Selecionar todas as linhas visíveis"
+                />
+              </th>
               {headers.map((header) => (
                 <th key={header}>{header}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map((row, idx) => (
-              <tr key={idx}>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={selected.has(idx)}
-                    onChange={() => handleSelect(idx)}
-                    style={selectedKeys.has(JSON.stringify(row)) ? { background: "#e3f2fd" } : {}}
-                  />
-                </td>
-                {headers.map((header) => (
-                  <td key={header}>{row[header]}</td>
-                ))}
-              </tr>
-            ))}
+            {visibleRows.map((row, idx) => {
+              const isAlreadySelected = selectedKeys.has(JSON.stringify(row));
+              return (
+                <tr
+                  key={idx}
+                  style={isAlreadySelected ? { background: "#e3f2fd" } : {}}
+                >
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(idx)}
+                      onChange={() => handleSelect(idx)}
+                      style={isAlreadySelected ? { background: "#e3f2fd" } : {}}
+                    />
+                  </td>
+                  {headers.map((header) => (
+                    <td key={header}>{row[header]}</td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

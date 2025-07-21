@@ -41,6 +41,9 @@ const SearchTipsModal: React.FC<SearchTipsModalProps> = ({ open, onClose }) => {
           </li>
           <li>A busca não diferencia maiúsculas de minúsculas.</li>
           <li>Para buscar parte de uma palavra, basta digitar o trecho desejado.</li>
+          <li><b>Ctrl + A:</b> Selecionar todas as linhas.</li>
+          <li><b>Ctrl + D:</b> Limpar seleção de linhas.</li>
+          <li><b>Ctrl + F:</b> Pesquisar.</li>
         </ul>
         <button onClick={onClose} style={{ marginTop: 16 }}>Fechar</button>
       </div>

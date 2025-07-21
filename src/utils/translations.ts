@@ -1,12 +1,11 @@
 export const translationDictionary: Record<string, string[]> = {
     // Português : [Inglês, Alemão]
-    "máquina": ["machine", "maschine"],
+    //"máquina": ["machine", "maschine"],
     "receita": ["recipe", "rezept"],
     "erro": ["error", "fehler"],
     "produção": ["production", "produktion"],
     "estado": ["state", "zustand"],
-    // Adicione mais termos conforme necessário
-};
+    };
 
 /**
  * Recebe uma palavra-chave e retorna um array com ela e suas traduções.
