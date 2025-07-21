@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import FileUpload from "./components/FileUpload";
 import SearchBar from "./components/SearchBar";
 import ResultsTable from "./components/ResultsTable";
@@ -22,6 +22,47 @@ const App: React.FC = () => {
   const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
   const [autoLabelingLoading, setAutoLabelingLoading] = useState(false);
   const [autoLabelingMessage, setAutoLabelingMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
+
+  const LoadingBar: React.FC<{ text?: string }> = ({ text }) => (
+    <div style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      width: "100vw",
+      height: 4,
+      background: "linear-gradient(90deg, #2980d9 30%, #6dd5fa 100%)",
+      zIndex: 4000,
+      animation: "loading-bar 1.2s linear infinite"
+    }}>
+      <style>
+        {`
+        @keyframes loading-bar {
+          0% { width: 0vw; }
+          100% { width: 100vw; }
+        }
+      `}
+      </style>
+      {text && (
+        <div style={{
+          position: "fixed",
+          top: 8,
+          left: "50%",
+          transform: "translateX(-50%)",
+          color: "#2980d9",
+          fontWeight: 600,
+          background: "#fff",
+          padding: "4px 18px",
+          borderRadius: 8,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+          zIndex: 4001
+        }}>
+          {text}
+        </div>
+      )}
+    </div>
+  );
 
 
   const applyFilters = (
@@ -39,6 +80,7 @@ const App: React.FC = () => {
   };
 
   const handleFileSelected = async (file: File) => {
+    setUploadLoading(true);
     try {
       const rows = await parseCsv(file);
       setCsvRows(rows);
@@ -47,11 +89,12 @@ const App: React.FC = () => {
       setKeyword("");
       setColumnFilters({});
       setSelectedRows([]);
-      setSelectedRows([]);
       setAutoLabelingMessage(null);
     } catch (error) {
       alert("Erro ao ler o arquivo CSV.");
       setCsvLoaded(false);
+    } finally {
+      setUploadLoading(false);
     }
   };
 
@@ -71,6 +114,11 @@ const App: React.FC = () => {
       const keys = (row: CsvRow) => JSON.stringify(row);
       const allRows = [...prev, ...rows];
       const uniqueRows = Array.from(new Map(allRows.map(r => [keys(r), r])).values());
+      const addedCount = uniqueRows.length - prev.length;
+      if (addedCount > 0) {
+        setToast(`${addedCount} linha(s) adicionada(s) à seleção!`);
+        setTimeout(() => setToast(null), 2500);
+      }
       return uniqueRows;
     });
   };
@@ -78,12 +126,11 @@ const App: React.FC = () => {
   const handleRemoveSelectedRow = (idx: number) => {
     setSelectedRows(prev => prev.filter((_, i) => i !== idx));
   };
-  // Função para auto "rotulagem" baseada no dicionário de traduções
+
   const handleAutoLabeling = async () => {
     setAutoLabelingLoading(true);
     setAutoLabelingMessage(null);
 
-    // Permite mostrar o loading na UI antes de processar
     await new Promise(resolve => setTimeout(resolve, 100));
 
     const allKeywords = Object.keys(translationDictionary).flatMap(pt =>
@@ -132,6 +179,23 @@ const App: React.FC = () => {
     setSelectedRows([]);
   };
 
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === "f") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+      if (e.key === "Escape") {
+        setSidebarOpen(false);
+        setShowTips(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   if (screen === "welcome") {
     return (
       <div className="container" style={{ textAlign: "center", marginTop: 80 }}>
@@ -160,7 +224,12 @@ const App: React.FC = () => {
   if (screen === "labeling") {
     return (
 
+
       <div className="container">
+        {(uploadLoading || autoLabelingLoading) && (
+          <LoadingBar text={uploadLoading ? "Carregando arquivo..." : "Executando Auto Labeling..."} />
+        )}
+
         <h1>Easy Labeling</h1>
 
         <button style={{ float: "right", marginTop: -48, marginRight: 0 }} onClick={() => setScreen("welcome")}>
@@ -168,8 +237,33 @@ const App: React.FC = () => {
         <button style={{ float: "right", marginTop: -48, marginRight: 100 }} onClick={() => setShowTips(true)}>
           Dicas de Pesquisa
         </button>
-        <button style={{ float: "right", marginTop: -48, marginRight: 295 }} onClick={() => setSidebarOpen(true)}>
+        <button
+          style={{ float: "right", marginTop: -48, marginRight: 295, position: "relative" }}
+          onClick={() => setSidebarOpen(true)}
+        >
           Ver selecionados
+          {selectedRows.length > 0 && (
+            <span
+              style={{
+                background: "#2980d9",
+                color: "#fff",
+                borderRadius: "50%",
+                padding: "2px 8px",
+                fontSize: "0.95em",
+                fontWeight: 600,
+                marginLeft: 8,
+                position: "absolute",
+                top: "-8px",
+                right: "150px",
+                minWidth: 24,
+                textAlign: "center",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.08)"
+              }}
+              title="Linhas selecionadas"
+            >
+              {selectedRows.length}
+            </span>
+          )}
         </button>
         <SearchTipsModal open={showTips} onClose={() => setShowTips(false)} />
         <SelectedRowsSidebar
@@ -197,26 +291,57 @@ const App: React.FC = () => {
             </div>
           )
         }
+        {toast && (
+          <div
+            style={{
+              position: "fixed",
+              top: 24,
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "#2980d9",
+              color: "#fff",
+              padding: "12px 32px",
+              borderRadius: 8,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              zIndex: 3000,
+              fontSize: "1.1em",
+              fontWeight: 500,
+              pointerEvents: "none"
+            }}
+          >
+            {toast}
+          </div>
+        )}
         {
           csvLoaded && (
             <>
-              <SearchBar keyword={keyword} onKeywordChange={handleKeywordChange} />
-              {filteredRows.length > 0 && (
-                <ColumnFilters
-                  headers={filterableColumns}
-                  rows={csvRows}
-                  filters={columnFilters}
-                  onFilterChange={handleColumnFilterChange}
-                />
-              )}
-              {csvLoaded && (
+              <div
+                style={{
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 110,
+                  background: "#fff",
+                  paddingBottom: 8,
+                  marginBottom: 8,
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.04)"
+                }}
+              >
+                <SearchBar keyword={keyword} onKeywordChange={handleKeywordChange} inputRef={searchInputRef} />
+                {filteredRows.length > 0 && (
+                  <ColumnFilters
+                    headers={filterableColumns}
+                    rows={csvRows}
+                    filters={columnFilters}
+                    onFilterChange={handleColumnFilterChange}
+                  />
+                )}
                 <button
                   style={{ marginBottom: 16, marginLeft: 8, background: "#e74c3c" }}
                   onClick={handleClearAll}
                 >
                   Limpar tudo
                 </button>
-              )}
+              </div>
               <ResultsTable
                 rows={filteredRows}
                 onSelectRows={handleSelectRows}
