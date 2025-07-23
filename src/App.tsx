@@ -11,6 +11,7 @@ import { translationDictionary } from "./utils/translations";
 import "./App.css";
 
 const App: React.FC = () => {
+ 
   const [screen, setScreen] = useState<"welcome" | "labeling" | "edit">("welcome");
   const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
   const [filteredRows, setFilteredRows] = useState<CsvRow[]>([]);
@@ -25,16 +26,15 @@ const App: React.FC = () => {
   const [toast, setToast] = useState<string | null>(null);
   const [uploadLoading, setUploadLoading] = useState(false);
 
+  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+ 
   const LoadingBar: React.FC<{ text?: string }> = ({ text }) => (
     <div style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      width: "100vw",
-      height: 4,
+      position: "fixed", top: 0, left: 0, width: "100vw", height: 4,
       background: "linear-gradient(90deg, #2980d9 30%, #6dd5fa 100%)",
-      zIndex: 4000,
-      animation: "loading-bar 1.2s linear infinite"
+      zIndex: 4000, animation: "loading-bar 1.2s linear infinite"
     }}>
       <style>
         {`
@@ -46,16 +46,9 @@ const App: React.FC = () => {
       </style>
       {text && (
         <div style={{
-          position: "fixed",
-          top: 8,
-          left: "50%",
-          transform: "translateX(-50%)",
-          color: "#2980d9",
-          fontWeight: 600,
-          background: "#fff",
-          padding: "4px 18px",
-          borderRadius: 8,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+          position: "fixed", top: 8, left: "50%", transform: "translateX(-50%)",
+          color: "#2980d9", fontWeight: 600, background: "#fff",
+          padding: "4px 18px", borderRadius: 8, boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
           zIndex: 4001
         }}>
           {text}
@@ -64,7 +57,7 @@ const App: React.FC = () => {
     </div>
   );
 
-
+  
   const applyFilters = (
     rows: CsvRow[],
     keyword: string,
@@ -90,6 +83,7 @@ const App: React.FC = () => {
       setColumnFilters({});
       setSelectedRows([]);
       setAutoLabelingMessage(null);
+      setScreen("labeling"); 
     } catch (error) {
       alert("Erro ao ler o arquivo CSV.");
       setCsvLoaded(false);
@@ -100,7 +94,10 @@ const App: React.FC = () => {
 
   const handleKeywordChange = (value: string) => {
     setKeyword(value);
-    setFilteredRows(applyFilters(csvRows, value, columnFilters));
+    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+    debounceTimeout.current = setTimeout(() => {
+      setFilteredRows(applyFilters(csvRows, value, columnFilters));
+    }, 500);
   };
 
   const handleColumnFilterChange = (col: string, value: string) => {
@@ -109,10 +106,10 @@ const App: React.FC = () => {
     setFilteredRows(applyFilters(csvRows, keyword, newFilters));
   };
 
-  const handleSelectRows = (rows: CsvRow[]) => {
+  const handleSelectRows = (rowsToSelect: CsvRow[]) => { 
     setSelectedRows((prev) => {
       const keys = (row: CsvRow) => JSON.stringify(row);
-      const allRows = [...prev, ...rows];
+      const allRows = [...prev, ...rowsToSelect];
       const uniqueRows = Array.from(new Map(allRows.map(r => [keys(r), r])).values());
       const addedCount = uniqueRows.length - prev.length;
       if (addedCount > 0) {
@@ -140,7 +137,7 @@ const App: React.FC = () => {
     const autoLabeledRows = csvRows.filter(row =>
       Object.values(row).some(value =>
         allKeywords.some(kw =>
-          value && value.toLowerCase().includes(kw.toLowerCase())
+          value && typeof value === 'string' && value.toLowerCase().includes(kw.toLowerCase())
         )
       )
     );
@@ -152,6 +149,7 @@ const App: React.FC = () => {
       return;
     }
 
+    
     setSelectedRows(prev => {
       const keys = (row: CsvRow) => JSON.stringify(row);
       const allRows = [...prev, ...autoLabeledRows];
@@ -160,17 +158,7 @@ const App: React.FC = () => {
     });
 
     setAutoLabelingMessage(`Auto Labeling concluído! ${autoLabeledRows.length} linha(s) adicionada(s) à seleção.`);
-
-    setSelectedRows(prev => {
-      const keys = (row: CsvRow) => JSON.stringify(row);
-      const allRows = [...prev, ...autoLabeledRows];
-      const uniqueRows = Array.from(new Map(allRows.map(r => [keys(r), r])).values());
-      return uniqueRows;
-    });
   };
-
-  const csvHeaders = filteredRows.length > 0 ? Object.keys(filteredRows[0]) : [];
-  const filterableColumns = csvHeaders.filter(h => h === "dataType");
 
   const handleClearAll = () => {
     setKeyword("");
@@ -178,8 +166,6 @@ const App: React.FC = () => {
     setFilteredRows(csvRows);
     setSelectedRows([]);
   };
-
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -194,87 +180,94 @@ const App: React.FC = () => {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, []); 
+  const csvHeaders = csvLoaded && filteredRows.length > 0 ? Object.keys(filteredRows[0]) : [];
+  const filterableColumns = csvHeaders.filter(h => h === "dataType");
 
-  if (screen === "welcome") {
-    return (
-      <div className="container" style={{ textAlign: "center", marginTop: 80 }}>
-        <h1>Easy Labeling</h1>
-        <p>Bem-vindo! O que você deseja fazer?</p>
-        <button
-          style={{ margin: 16, minWidth: 220 }}
-          onClick={() => setScreen("labeling")}
+  return (
+    <>
+      
+      {(uploadLoading || autoLabelingLoading) && (
+        <LoadingBar text={uploadLoading ? "Carregando arquivo..." : "Executando Auto Labeling..."} />
+      )}
+
+      
+      {toast && (
+        <div
+          style={{
+            position: "fixed", top: 24, left: "50%", transform: "translateX(-50%)",
+            background: "#2980d9", color: "#fff", padding: "12px 32px", borderRadius: 8,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)", zIndex: 3000, fontSize: "1.1em",
+            fontWeight: 500, pointerEvents: "none"
+          }}
         >
-          Iniciar um Labeling
-        </button>
-        <button
-          style={{ margin: 16, minWidth: 220 }}
-          onClick={() => setScreen("edit")}
-        >
-          Modificar um Labeling
-        </button>
-      </div>
-    );
-  }
-  if (screen === "edit") {
-    return (
-      <CsvEditorScreen onBack={() => setScreen("welcome")} />
-    );
-  }
-  if (screen === "labeling") {
-    return (
+          {toast}
+        </div>
+      )}
 
+      {screen === "welcome" && (
+        <div className="container" style={{ textAlign: "center", marginTop: 80 }}>
+          <h1>Easy Labeling</h1>
+          <p>Bem-vindo! O que você deseja fazer?</p>
+          <button
+            style={{ margin: 16, minWidth: 220 }}
+            onClick={() => setScreen("labeling")}
+          >
+            Iniciar um Labeling
+          </button>
+          <button
+            style={{ margin: 16, minWidth: 220 }}
+            onClick={() => setScreen("edit")}
+          >
+            Modificar um Labeling
+          </button>
+        </div>
+      )}
 
-      <div className="container">
-        {(uploadLoading || autoLabelingLoading) && (
-          <LoadingBar text={uploadLoading ? "Carregando arquivo..." : "Executando Auto Labeling..."} />
-        )}
+      {screen === "edit" && (
+        <CsvEditorScreen onBack={() => setScreen("welcome")} />
+      )}
 
-        <h1>Easy Labeling</h1>
+      {screen === "labeling" && (
+        <div className="container">
+          <h1>Easy Labeling</h1>
 
-        <button style={{ float: "right", marginTop: -48, marginRight: 0 }} onClick={() => setScreen("welcome")}>
-          Voltar</button>
-        <button style={{ float: "right", marginTop: -48, marginRight: 100 }} onClick={() => setShowTips(true)}>
-          Dicas de Pesquisa
-        </button>
-        <button
-          style={{ float: "right", marginTop: -48, marginRight: 295, position: "relative" }}
-          onClick={() => setSidebarOpen(true)}
-        >
-          Ver selecionados
-          {selectedRows.length > 0 && (
-            <span
-              style={{
-                background: "#2980d9",
-                color: "#fff",
-                borderRadius: "50%",
-                padding: "2px 8px",
-                fontSize: "0.95em",
-                fontWeight: 600,
-                marginLeft: 8,
-                position: "absolute",
-                top: "-8px",
-                right: "150px",
-                minWidth: 24,
-                textAlign: "center",
-                boxShadow: "0 1px 4px rgba(0,0,0,0.08)"
-              }}
-              title="Linhas selecionadas"
-            >
-              {selectedRows.length}
-            </span>
-          )}
-        </button>
-        <SearchTipsModal open={showTips} onClose={() => setShowTips(false)} />
-        <SelectedRowsSidebar
-          selectedRows={selectedRows}
-          onRemoveRow={handleRemoveSelectedRow}
-          onClose={() => setSidebarOpen(false)}
-          open={sidebarOpen}
-        />
-        <FileUpload onFileSelected={handleFileSelected} />
-        {
-          csvLoaded && (
+          <button style={{ float: "right", marginTop: -48, marginRight: 0 }} onClick={() => setScreen("welcome")}>
+            Voltar
+          </button>
+          <button style={{ float: "right", marginTop: -48, marginRight: 100 }} onClick={() => setShowTips(true)}>
+            Dicas de Pesquisa
+          </button>
+          <button
+            style={{ float: "right", marginTop: -48, marginRight: 295, position: "relative" }}
+            onClick={() => setSidebarOpen(true)}
+          >
+            Ver selecionados
+            {selectedRows.length > 0 && (
+              <span
+                style={{
+                  background: "#2980d9", color: "#fff", borderRadius: "50%",
+                  padding: "2px 8px", fontSize: "0.95em", fontWeight: 600, marginLeft: 8,
+                  position: "absolute", top: "-8px", right: "150px", minWidth: 24,
+                  textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.08)"
+                }}
+                title="Linhas selecionadas"
+              >
+                {selectedRows.length}
+              </span>
+            )}
+          </button>
+
+          <SearchTipsModal open={showTips} onClose={() => setShowTips(false)} />
+          <SelectedRowsSidebar
+            selectedRows={selectedRows}
+            onRemoveRow={handleRemoveSelectedRow}
+            onClose={() => setSidebarOpen(false)}
+            open={sidebarOpen}
+          />
+          <FileUpload onFileSelected={handleFileSelected} />
+
+          {csvLoaded && (
             <button
               style={{ marginBottom: 16, marginLeft: 8 }}
               onClick={handleAutoLabeling}
@@ -282,48 +275,20 @@ const App: React.FC = () => {
             >
               {autoLabelingLoading ? "Auto Labeling em andamento..." : "Auto Labeling"}
             </button>
-          )
-        }
-        {
-          autoLabelingMessage && (
+          )}
+
+          {autoLabelingMessage && (
             <div style={{ margin: "12px 0", color: "#2980d9", fontWeight: 500 }}>
               {autoLabelingMessage}
             </div>
-          )
-        }
-        {toast && (
-          <div
-            style={{
-              position: "fixed",
-              top: 24,
-              left: "50%",
-              transform: "translateX(-50%)",
-              background: "#2980d9",
-              color: "#fff",
-              padding: "12px 32px",
-              borderRadius: 8,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-              zIndex: 3000,
-              fontSize: "1.1em",
-              fontWeight: 500,
-              pointerEvents: "none"
-            }}
-          >
-            {toast}
-          </div>
-        )}
-        {
-          csvLoaded && (
+          )}
+
+          {csvLoaded && (
             <>
               <div
                 style={{
-                  position: "sticky",
-                  top: 0,
-                  zIndex: 110,
-                  background: "#fff",
-                  paddingBottom: 8,
-                  marginBottom: 8,
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.04)"
+                  position: "sticky", top: 0, zIndex: 110, background: "#fff",
+                  paddingBottom: 8, marginBottom: 8, boxShadow: "0 2px 8px rgba(0,0,0,0.04)"
                 }}
               >
                 <SearchBar keyword={keyword} onKeywordChange={handleKeywordChange} inputRef={searchInputRef} />
@@ -348,11 +313,11 @@ const App: React.FC = () => {
                 selectedRows={selectedRows}
               />
             </>
-          )
-        }
-      </div >
-    );
-  }
-  return null;
+          )}
+        </div>
+      )}
+    </>
+  );
 }
+
 export default App;

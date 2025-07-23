@@ -1,8 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { CsvRow } from "../utils/csvUtils";
 
-
-
 interface ResultsTableProps {
   rows: CsvRow[];
   onSelectRows: (rows: CsvRow[]) => void;
@@ -12,13 +10,15 @@ interface ResultsTableProps {
 const INITIAL_ROWS = 30;
 const LOAD_MORE_ROWS = 20;
 
-
 const ResultsTable: React.FC<ResultsTableProps> = ({ rows, onSelectRows, selectedRows }) => {
+
   const [visibleCount, setVisibleCount] = useState(INITIAL_ROWS);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
-  const selectedKeys = new Set(selectedRows.map(row => JSON.stringify(row)));
   const [selectAll, setSelectAll] = useState(false);
+
+
+  const selectedKeys = new Set(selectedRows.map(row => JSON.stringify(row)));
 
   useEffect(() => {
     setVisibleCount(INITIAL_ROWS);
@@ -27,11 +27,16 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ rows, onSelectRows, selecte
   }, [rows]);
 
 
+  const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
+  const visibleRows = rows.slice(0, visibleCount);
+
+
   const handleSelectAll = () => {
     if (selectAll) {
       setSelected(new Set());
       setSelectAll(false);
     } else {
+
       setSelected(new Set(visibleRows.map((_, idx) => idx)));
       setSelectAll(true);
     }
@@ -60,19 +65,12 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ rows, onSelectRows, selecte
   };
 
   const handleAddSelected = () => {
-    const selectedRows = Array.from(selected).map(idx => rows[idx]);
-    onSelectRows(selectedRows);
+    const selectedRowsToAdd = Array.from(selected).map(idx => rows[idx]);
+    onSelectRows(selectedRowsToAdd);
     setSelected(new Set());
   };
 
-  if (!rows || rows.length === 0) {
-    return <div>Nenhum resultado encontrado.</div>;
-  }
-
-  const headers = Object.keys(rows[0]);
-  const visibleRows = rows.slice(0, visibleCount);
-
-  //uso de teclas de atalho
+  // Uso de teclas de atalho
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === "a") {
@@ -88,7 +86,12 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ rows, onSelectRows, selecte
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [visibleRows]);
+  }, [visibleRows]); // Dependência de visibleRows
+
+
+  if (!rows || rows.length === 0) {
+    return <div>Nenhum resultado encontrado.</div>;
+  }
 
   return (
     <div>
@@ -126,7 +129,6 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ rows, onSelectRows, selecte
                       type="checkbox"
                       checked={selected.has(idx)}
                       onChange={() => handleSelect(idx)}
-                      style={isAlreadySelected ? { background: "#e3f2fd" } : {}}
                     />
                   </td>
                   {headers.map((header) => (
